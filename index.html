@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ff7a59">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Tabellina di Manu">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<title>La Tabellina di Manu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap">
+<style>
+  :root {
+    --bg: #fff6ec; --card: #ffffff; --ink: #2b2240; --muted: #7a6f8a;
+    --accent: #ff7a59; --accent2: #6c5ce7; --ok: #20bf6b; --ko: #eb3b5a;
+    --key: #f3eefc; --line: #eee4f7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #1b1628; --card: #262036; --ink: #f4efff; --muted: #b3a8c9;
+      --key: #332b48; --line: #3a3150; color-scheme: dark; }
+  }
+  :root[data-theme="dark"] { --bg: #1b1628; --card: #262036; --ink: #f4efff; --muted: #b3a8c9;
+      --key: #332b48; --line: #3a3150; color-scheme: dark; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--ink);
+    font-family: "Baloo 2", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+    display: flex; justify-content: center; }
+  .app { width: 100%; max-width: 480px; padding-block: 16px 32px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .btn:focus-visible, .pad button:focus-visible, .tabs button:focus-visible { outline: 3px solid var(--accent2); outline-offset: 2px; }
+  .confirm { margin-top: 12px; text-align: center; font-weight: 600; }
+  .confirm .row .btn { margin-top: 8px; }
+  h1 { text-align: center; margin: 8px 0 4px; font-size: 1.9rem; line-height: 1.15; }
+  h1 span { color: var(--accent); }
+  .sub { text-align: center; color: var(--muted); margin: 0 0 20px; }
+  .card { background: var(--card); border-radius: 20px; padding: 20px;
+    box-shadow: 0 6px 20px rgba(80,40,120,.08); margin-bottom: 16px; }
+  label { font-weight: 600; display: block; margin-bottom: 8px; }
+  input[type=text] { width: 100%; font-size: 1.2rem; padding: 12px 14px; border-radius: 12px;
+    border: 2px solid var(--line); background: var(--bg); color: var(--ink); outline: none; }
+  input[type=text]:focus { border-color: var(--accent2); }
+  .btn { display: block; width: 100%; border: 0; border-radius: 14px; padding: 16px;
+    font-size: 1.2rem; font-weight: 700; color: #fff; background: var(--accent);
+    margin-top: 14px; cursor: pointer; }
+  .btn.alt { background: var(--accent2); }
+  .btn.ghost { background: transparent; color: var(--muted); border: 2px solid var(--line); }
+  .btn:active { transform: scale(.98); }
+  .row { display: flex; gap: 8px; }
+  .row .btn { margin-top: 10px; }
+  .hidden { display: none !important; }
+
+  /* gioco */
+  .top { display: flex; justify-content: space-between; color: var(--muted); font-weight: 600; }
+  .rules { margin: 6px 0 0; text-align: center; font-size: .9rem; color: var(--muted); }
+  #clock { color: var(--accent2); font-variant-numeric: tabular-nums; }
+  .progress { height: 10px; background: var(--line); border-radius: 99px; margin: 10px 0 18px; overflow: hidden; }
+  .progress div { height: 100%; width: 0; background: var(--accent2); transition: width .3s; }
+  .question { text-align: center; font-size: 3.2rem; font-weight: 800; margin: 6px 0; }
+  .answer { text-align: center; font-size: 2.6rem; font-weight: 800; min-height: 3.4rem;
+    border-bottom: 3px dashed var(--line); margin: 0 30px 12px; color: var(--accent2); }
+  .feedback { text-align: center; font-weight: 700; font-size: 1.15rem; min-height: 1.6rem; }
+  .feedback.ok { color: var(--ok); } .feedback.ko { color: var(--ko); }
+  .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
+  .pad button { font-size: 1.7rem; font-weight: 700; padding: 16px 0; border: 0; border-radius: 14px;
+    background: var(--key); color: var(--ink); cursor: pointer; }
+  .pad button:active { filter: brightness(.9); }
+  .pad .go { background: var(--ok); color: #fff; }
+  .pad .del { background: var(--ko); color: #fff; }
+
+  /* risultati */
+  .big { text-align: center; font-size: 3.5rem; font-weight: 800; color: var(--accent); margin: 4px 0; }
+  .stars { text-align: center; font-size: 2rem; }
+  .msg { text-align: center; font-weight: 600; }
+  .errors { margin-top: 12px; font-size: .95rem; color: var(--muted); }
+  .errors b { color: var(--ink); }
+
+  /* tabs e liste */
+  .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+  .tabs button { flex: 1; padding: 10px; border-radius: 12px; border: 2px solid var(--line);
+    background: transparent; color: var(--muted); font-weight: 700; font-size: 1rem; cursor: pointer; }
+  .tabs button.on { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+  ol.list { list-style: none; padding: 0; margin: 0; }
+  ol.list li { display: flex; align-items: center; gap: 10px; padding: 10px 4px; border-bottom: 1px solid var(--line); }
+  ol.list li:last-child { border-bottom: 0; }
+  .pos { width: 34px; text-align: center; font-weight: 800; font-size: 1.1rem; }
+  .who { flex: 1; min-width: 0; }
+  .who b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .who small { color: var(--muted); }
+  .pts { font-weight: 800; color: var(--accent); white-space: nowrap; }
+  ol.list li.sep { display: block; text-align: center; font-size: .85rem; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .05em; padding-top: 16px; }
+  .empty { text-align: center; color: var(--muted); padding: 10px; }
+  h2 { margin: 0 0 12px; font-size: 1.3rem; }
+</style>
+
+</head>
+<body>
+<div class="app">
+  <h1>La Tabellina <span>di Manu</span></h1>
+  <p class="sub">Tabelline a sorpresa dall'1 al 10 ✖️</p>
+
+  <!-- HOME -->
+  <section id="home">
+    <div class="card">
+      <label for="name">Come ti chiami?</label>
+      <input id="name" type="text" maxlength="20" placeholder="Il tuo nome" autocomplete="off">
+      <button class="btn" id="start">Gioca! (10 domande)</button>
+    </div>
+    <div class="card" id="boards"></div>
+  </section>
+
+  <!-- GIOCO -->
+  <section id="game" class="hidden">
+    <div class="card">
+      <div class="top"><span id="qnum">Domanda 1/10</span><span id="clock">⏱ 0,0 s</span><span id="score">✅ 0</span></div>
+      <p class="rules">Vince chi è più veloce! Ogni errore: +5 secondi</p>
+      <div class="progress"><div id="bar"></div></div>
+      <div class="question" id="question">3 × 4</div>
+      <div class="answer" id="answer"></div>
+      <div class="feedback" id="feedback"></div>
+      <div class="pad" id="pad"></div>
+    </div>
+    <button class="btn ghost" id="quit">Esci dalla partita</button>
+  </section>
+
+  <!-- RISULTATO -->
+  <section id="result" class="hidden">
+    <div class="card">
+      <h2 id="rname" style="text-align:center"></h2>
+      <div class="stars" id="stars"></div>
+      <div class="big" id="final"></div>
+      <p class="msg" id="rmsg"></p>
+      <div class="errors" id="errors"></div>
+      <div class="row">
+        <button class="btn" id="again">Gioca ancora</button>
+        <button class="btn alt" id="tohome">Classifica</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+const TOTAL = 10;
+const KEY = 'tabellina-manu-partite';
+const $ = id => document.getElementById(id);
+
+let questions = [], idx = 0, correct = 0, typed = '', locked = false, wrong = [], elapsed = 0, qStart = 0, ticker = null;
+const PENALTY = 5;
+let tab = 'classifica';
+
+function load() {
+  try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) { return []; }
+}
+function save(list) {
+  try { localStorage.setItem(KEY, JSON.stringify(list)); } catch (e) {}
+}
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function show(id) { ['home','game','result'].forEach(s => $(s).classList.toggle('hidden', s !== id)); window.scrollTo(0,0); }
+function fmtTime(sec) { return sec.toFixed(1).replace('.', ',') + ' s'; }
+function finalTime(g) { return g.final != null ? g.final : g.time; }
+// in classifica: prima i 10/10 (dal più veloce), poi gli altri (più esatte, poi più veloci)
+function better(a, b) {
+  return a.score !== b.score ? a.score > b.score : finalTime(a) < finalTime(b);
+}
+function fmtDate(ts) {
+  const d = new Date(ts);
+  return d.toLocaleDateString('it-IT', {day:'2-digit', month:'2-digit', year:'2-digit'}) + ' ' +
+         d.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
+}
+
+// ---------- classifica e cronologia ----------
+function renderBoards() {
+  const list = load();
+  let html = `<div class="tabs">
+    <button data-t="classifica" class="${tab==='classifica'?'on':''}">🏆 Classifica</button>
+    <button data-t="cronologia" class="${tab==='cronologia'?'on':''}">📜 Cronologia</button></div>`;
+  if (!list.length) {
+    html += `<p class="empty">Ancora nessuna partita. Inizia a giocare!</p>`;
+  } else if (tab === 'classifica') {
+    // miglior punteggio di ogni giocatore (a parità: tempo più veloce)
+    const best = {};
+    list.forEach(g => {
+      const k = g.name.toLowerCase();
+      const b = best[k];
+      if (!b || better(g, b)) best[k] = g;
+    });
+    const rank = Object.values(best).sort((a,b) => better(a, b) ? -1 : better(b, a) ? 1 : 0);
+    const medals = ['🥇','🥈','🥉'];
+    const firstNotPerfect = rank.findIndex(g => g.score < g.total);
+    html += '<ol class="list">' + rank.map((g,i) => {
+      const n = list.filter(x => x.name.toLowerCase() === g.name.toLowerCase()).length;
+      const sep = i === firstNotPerfect ? `<li class="sep">Non ancora 10 su 10</li>` : '';
+      const perfect = g.score === g.total;
+      return sep + `<li><span class="pos">${perfect ? (medals[i] || (i+1)) : '·'}</span>
+        <span class="who"><b>${esc(g.name)}</b><small>${n} partit${n===1?'a':'e'} · ${g.score}/${g.total} esatte</small></span>
+        <span class="pts">${fmtTime(finalTime(g))}</span></li>`;
+    }).join('') + '</ol>';
+  } else {
+    html += '<ol class="list">' + list.slice().reverse().map(g =>
+      `<li><span class="pos">${g.score >= 9 ? '⭐' : g.score >= 6 ? '👍' : '💪'}</span>
+        <span class="who"><b>${esc(g.name)}</b><small>${fmtDate(g.date)} · ${g.score}/${g.total} esatte</small></span>
+        <span class="pts">${fmtTime(finalTime(g))}</span></li>`).join('') + '</ol>';
+    html += `<button class="btn ghost" id="clear">Cancella tutto</button>`;
+  }
+  $('boards').innerHTML = html;
+  $('boards').querySelectorAll('.tabs button').forEach(b => b.onclick = () => { tab = b.dataset.t; renderBoards(); });
+  const c = $('clear');
+  if (c) c.onclick = () => askConfirm($('boards'), 'Cancellare tutta la cronologia e la classifica?', 'Sì, cancella', () => { save([]); renderBoards(); });
+}
+
+// ---------- gioco ----------
+function newQuestions() {
+  const qs = [], seen = new Set();
+  while (qs.length < TOTAL) {
+    const a = 1 + Math.floor(Math.random()*10), b = 1 + Math.floor(Math.random()*10);
+    const k = a + 'x' + b;
+    if (seen.has(k)) continue;
+    seen.add(k); qs.push([a, b]);
+  }
+  return qs;
+}
+
+function startGame() {
+  const name = $('name').value.trim();
+  if (!name) { $('name').focus(); $('name').style.borderColor = 'var(--ko)'; return; }
+  try { localStorage.setItem(KEY + '-nome', name); } catch (e) {}
+  questions = newQuestions(); idx = 0; correct = 0; wrong = []; elapsed = 0;
+  clearInterval(ticker); ticker = setInterval(updateClock, 100);
+  show('game'); nextQuestion();
+}
+
+function nextQuestion() {
+  typed = ''; locked = false; qStart = Date.now();
+  const [a, b] = questions[idx];
+  $('question').textContent = `${a} × ${b}`;
+  $('answer').textContent = '';
+  $('feedback').textContent = ''; $('feedback').className = 'feedback';
+  $('qnum').textContent = `Domanda ${idx+1}/${TOTAL}`;
+  $('score').textContent = `✅ ${correct}`;
+  $('bar').style.width = (idx / TOTAL * 100) + '%';
+}
+
+function press(k) {
+  if (locked) return;
+  if (k === 'del') typed = typed.slice(0, -1);
+  else if (k === 'ok') return check();
+  else if (typed.length < 3) typed += k;
+  $('answer').textContent = typed;
+}
+
+function check() {
+  if (!typed) return;
+  locked = true;
+  elapsed += Date.now() - qStart;
+  const [a, b] = questions[idx], right = a * b, given = parseInt(typed, 10);
+  const fb = $('feedback');
+  if (given === right) {
+    correct++; fb.textContent = 'Bravo! 🎉'; fb.className = 'feedback ok';
+  } else {
+    elapsed += PENALTY * 1000;
+    wrong.push(`${a} × ${b} = <b>${right}</b> (hai scritto ${given})`);
+    fb.textContent = `Era ${right} 😅 +${PENALTY} s`; fb.className = 'feedback ko';
+  }
+  $('score').textContent = `✅ ${correct}`;
+  setTimeout(() => { idx++; idx < TOTAL ? nextQuestion() : endGame(); }, given === right ? 700 : 1500);
+}
+
+function endGame() {
+  clearInterval(ticker);
+  const final = Math.round(elapsed / 100) / 10;
+  const time = Math.round((final - (TOTAL - correct) * PENALTY) * 10) / 10;
+  const prev = load().filter(g => g.name.toLowerCase() === $('name').value.trim().toLowerCase());
+  const prevPerfect = prev.filter(g => g.score === g.total);
+  const record = correct === TOTAL && (!prevPerfect.length || final < Math.min(...prevPerfect.map(finalTime)));
+  const name = $('name').value.trim();
+  const list = load();
+  list.push({ name, score: correct, total: TOTAL, time, final, date: Date.now() });
+  save(list);
+  $('bar').style.width = '100%';
+  $('rname').textContent = name;
+  $('final').textContent = fmtTime(final);
+  const stars = correct === 10 ? 3 : correct >= 7 ? 2 : correct >= 4 ? 1 : 0;
+  $('stars').textContent = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
+  $('rmsg').textContent = (correct === 10 ? 'Perfetto! Sei un campione! 🏆'
+    : correct >= 7 ? 'Bravissimo! Ancora un piccolo sforzo! 💪'
+    : correct >= 4 ? 'Buon lavoro, continua ad allenarti! 📚'
+    : 'Non mollare, riprova! 🌱') + ` Esatte: ${correct}/${TOTAL}` +
+    (correct < TOTAL ? ` (tempo ${fmtTime(time)} + ${(TOTAL - correct) * PENALTY} s di errori)` : '') +
+    (record ? ' · 🎉 Nuovo record!' : '') +
+    (correct < TOTAL ? ' · Fai 10 su 10 per salire in cima alla classifica!' : '');
+  $('errors').innerHTML = wrong.length ? '<b>Da ripassare:</b><br>' + wrong.join('<br>') : '';
+  show('result');
+}
+
+// tastierino
+const keys = ['1','2','3','4','5','6','7','8','9','del','0','ok'];
+$('pad').innerHTML = keys.map(k =>
+  `<button data-k="${k}" class="${k==='ok'?'go':k==='del'?'del':''}">${k==='ok'?'OK':k==='del'?'⌫':k}</button>`).join('');
+$('pad').querySelectorAll('button').forEach(b => b.onclick = () => press(b.dataset.k));
+document.addEventListener('keydown', e => {
+  if ($('game').classList.contains('hidden')) return;
+  if (/^[0-9]$/.test(e.key)) press(e.key);
+  else if (e.key === 'Backspace') press('del');
+  else if (e.key === 'Enter') press('ok');
+});
+
+$('start').onclick = startGame;
+$('name').addEventListener('keydown', e => { if (e.key === 'Enter') startGame(); });
+$('name').addEventListener('input', () => $('name').style.borderColor = '');
+$('again').onclick = startGame;
+$('tohome').onclick = () => { tab = 'classifica'; renderBoards(); show('home'); };
+function updateClock() {
+  const live = locked ? elapsed : elapsed + (Date.now() - qStart);
+  $('clock').textContent = '⏱ ' + fmtTime(live / 1000);
+}
+$('quit').onclick = () => askConfirm($('game'), 'Vuoi uscire? La partita non verrà salvata.', 'Sì, esci', () => { clearInterval(ticker); renderBoards(); show('home'); });
+function askConfirm(where, text, yes, onYes) {
+  const old = where.querySelector('.confirm'); if (old) old.remove();
+  const box = document.createElement('div'); box.className = 'card confirm';
+  box.innerHTML = `<div>${text}</div><div class="row"><button class="btn alt">${yes}</button><button class="btn ghost">Annulla</button></div>`;
+  const [y, n] = box.querySelectorAll('button');
+  y.onclick = () => { box.remove(); onYes(); };
+  n.onclick = () => box.remove();
+  where.appendChild(box);
+  box.scrollIntoView({behavior: 'smooth', block: 'center'});
+}
+
+try { $('name').value = localStorage.getItem(KEY + '-nome') || ''; } catch (e) {}
+renderBoards();
+</script>
+</body>
+</html>
