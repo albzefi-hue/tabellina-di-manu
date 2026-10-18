@@ -93,6 +93,7 @@
   .pts { font-weight: 800; color: var(--accent); white-space: nowrap; }
   ol.list li.sep { display: block; text-align: center; font-size: .85rem; font-weight: 700; color: var(--muted);
     text-transform: uppercase; letter-spacing: .05em; padding-top: 16px; }
+  .net { text-align: center; color: var(--muted); font-size: .85rem; margin: 12px 0 0; }
   .empty { text-align: center; color: var(--muted); padding: 10px; }
   h2 { margin: 0 0 12px; font-size: 1.3rem; }
 
@@ -170,11 +171,62 @@ let questions = [], idx = 0, correct = 0, typed = '', locked = false, wrong = []
 const PENALTY = 5;
 let tab = 'classifica';
 
-function load() {
-  try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) { return []; }
+// ---------- classifica online (Firebase Realtime Database) ----------
+const DB_URL = 'https://tabellina-di-manu-default-rtdb.europe-west1.firebasedatabase.app';          // es. https://xxx.europe-west1.firebasedatabase.app
+const CACHE = KEY + '-online';        // ultima classifica scaricata
+let online = null;                    // null = non ancora saputo, true/false
+function readLS(k) { try { return JSON.parse(localStorage.getItem(k)) || []; } catch (e) { return []; } }
+function writeLS(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+// partite da inviare (giocate su questo telefono e non ancora salvate online)
+function pending() { return readLS(KEY); }
+function gameId(g) {
+  let h = 0; for (const ch of g.name.toLowerCase()) h = (h * 31 + ch.codePointAt(0)) >>> 0;
+  return g.date + '-' + h.toString(36);
 }
-function save(list) {
-  try { localStorage.setItem(KEY, JSON.stringify(list)); } catch (e) {}
+function valid(g) {
+  return g && typeof g.name === 'string' && g.name.trim() && typeof g.score === 'number' &&
+    typeof g.date === 'number' && (typeof g.final === 'number' || typeof g.time === 'number');
+}
+// tutte le partite: quelle online + quelle ancora da inviare
+function load() {
+  const seen = new Set(), out = [];
+  [...readLS(CACHE), ...pending()].forEach(g => {
+    if (!valid(g)) return;
+    const k = gameId(g); if (seen.has(k)) return;
+    seen.add(k); out.push(g);
+  });
+  return out.sort((a, b) => a.date - b.date);
+}
+function clean(g) {
+  return { name: g.name.trim().slice(0, 20), score: g.score, total: TOTAL,
+    time: +(+g.time || 0).toFixed(1), final: +(+finalTime(g)).toFixed(1), date: g.date };
+}
+let syncing = null;
+function sync() {
+  if (!DB_URL.startsWith('https://')) return Promise.resolve();
+  if (syncing) return syncing;
+  syncing = (async () => {
+    try {
+      // 1) invia le partite in attesa (PUT con id fisso: se già presente non si duplica)
+      let left = pending();
+      for (const g of left.slice()) {
+        if (!valid(g)) { left = left.filter(x => x !== g); continue; }
+        const r = await fetch(`${DB_URL}/partite/${gameId(g)}.json`, { method: 'PUT', body: JSON.stringify(clean(g)) });
+        if (r.ok || r.status === 401 || r.status === 400) left = left.filter(x => x !== g); // 401: già presente o rifiutata
+        else throw new Error('http ' + r.status);
+        writeLS(KEY, left);
+      }
+      // 2) scarica la classifica di tutti
+      const r = await fetch(`${DB_URL}/partite.json`, { cache: 'no-store' });
+      if (!r.ok) throw new Error('http ' + r.status);
+      const data = await r.json() || {};
+      writeLS(CACHE, Object.values(data).filter(valid));
+      online = true;
+    } catch (e) { online = false; }
+    syncing = null;
+    if (!$('home').classList.contains('hidden')) renderBoards();
+  })();
+  return syncing;
 }
 function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function show(id) {
@@ -226,12 +278,15 @@ function renderBoards() {
       `<li><span class="pos">${g.score >= 9 ? '⭐' : g.score >= 6 ? '👍' : '💪'}</span>
         <span class="who"><b>${esc(g.name)}</b><small>${fmtDate(g.date)} · ${g.score}/${g.total} esatte</small></span>
         <span class="pts">${fmtTime(finalTime(g))}</span></li>`).join('') + '</ol>';
-    html += `<button class="btn ghost" id="clear">Cancella tutto</button>`;
+  }
+  if (DB_URL.startsWith('https://')) {
+    const n = pending().length;
+    html += `<p class="net">${online === false
+      ? `📴 Senza internet${n ? `: ${n} partit${n===1?'a':'e'} da inviare` : ''}. Riprovo da solo.`
+      : online ? '🌐 Classifica condivisa su tutti i dispositivi' : '⏳ Carico la classifica…'}</p>`;
   }
   $('boards').innerHTML = html;
   $('boards').querySelectorAll('.tabs button').forEach(b => b.onclick = () => { tab = b.dataset.t; renderBoards(); });
-  const c = $('clear');
-  if (c) c.onclick = () => askConfirm($('boards'), 'Cancellare tutta la cronologia e la classifica?', 'Sì, cancella', () => { save([]); renderBoards(); });
 }
 
 // ---------- gioco ----------
@@ -300,9 +355,8 @@ function endGame() {
   const prevPerfect = prev.filter(g => g.score === g.total);
   const record = correct === TOTAL && (!prevPerfect.length || final < Math.min(...prevPerfect.map(finalTime)));
   const name = $('name').value.trim();
-  const list = load();
-  list.push({ name, score: correct, total: TOTAL, time, final, date: Date.now() });
-  save(list);
+  writeLS(KEY, [...pending(), { name, score: correct, total: TOTAL, time, final, date: Date.now() }]);
+  sync();
   $('bar').style.width = '100%';
   $('rname').textContent = name;
   $('final').textContent = fmtTime(final);
@@ -354,6 +408,10 @@ function askConfirm(where, text, yes, onYes) {
 
 try { $('name').value = localStorage.getItem(KEY + '-nome') || ''; } catch (e) {}
 renderBoards();
+sync();
+document.addEventListener('visibilitychange', () => { if (!document.hidden) sync(); });
+window.addEventListener('online', sync);
+setInterval(() => { if (!document.hidden && !$('home').classList.contains('hidden')) sync(); }, 30000);
 </script>
 </body>
 </html>
