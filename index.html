@@ -8,7 +8,9 @@
 <meta name="apple-mobile-web-app-title" content="Tabellina di Manu">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>La Tabellina di Manu</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap">
 <style>
@@ -93,6 +95,24 @@
     text-transform: uppercase; letter-spacing: .05em; padding-top: 16px; }
   .empty { text-align: center; color: var(--muted); padding: 10px; }
   h2 { margin: 0 0 12px; font-size: 1.3rem; }
+
+  /* telefono: niente zoom col doppio tocco, tasti reattivi */
+  button { touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+  .question, .answer, .top, .feedback { -webkit-user-select: none; user-select: none; }
+  /* durante la partita tutto sta in una schermata, tastierino in basso vicino al pollice */
+  body.playing h1, body.playing .sub { display: none; }
+  body.playing .app { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column;
+    padding-block: max(10px, env(safe-area-inset-top, 0px)) max(10px, env(safe-area-inset-bottom, 0px)); }
+  #game { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+  #game .card { flex: 1; display: flex; flex-direction: column; margin: 0; padding: 14px; }
+  #game .progress { margin: 8px 0 4px; }
+  #game .rules { font-size: .8rem; }
+  #game .question { font-size: clamp(2.6rem, 10vh, 4.2rem); margin: auto 0 4px; }
+  #game .answer { font-size: clamp(2.2rem, 8vh, 3.4rem); min-height: 1.3em; margin-bottom: 6px; }
+  #game .pad { margin-top: auto; gap: 8px; }
+  #game .pad button { padding: 0; height: clamp(48px, 9.5vh, 72px); font-size: clamp(1.5rem, 4.5vh, 2rem); }
+  #quit { margin: 0; padding: 10px; font-size: .95rem; }
+  @media (max-height: 520px) { #game .rules, #game .progress { display: none; } }
 </style>
 
 </head>
@@ -157,7 +177,11 @@ function save(list) {
   try { localStorage.setItem(KEY, JSON.stringify(list)); } catch (e) {}
 }
 function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function show(id) { ['home','game','result'].forEach(s => $(s).classList.toggle('hidden', s !== id)); window.scrollTo(0,0); }
+function show(id) {
+  ['home','game','result'].forEach(s => $(s).classList.toggle('hidden', s !== id));
+  document.body.classList.toggle('playing', id === 'game');
+  window.scrollTo(0,0);
+}
 function fmtTime(sec) { return sec.toFixed(1).replace('.', ',') + ' s'; }
 function finalTime(g) { return g.final != null ? g.final : g.time; }
 // in classifica: prima i 10/10 (dal più veloce), poi gli altri (più esatte, poi più veloci)
@@ -262,6 +286,7 @@ function check() {
     elapsed += PENALTY * 1000;
     wrong.push(`${a} × ${b} = <b>${right}</b> (hai scritto ${given})`);
     fb.textContent = `Era ${right} 😅 +${PENALTY} s`; fb.className = 'feedback ko';
+    try { navigator.vibrate && navigator.vibrate(200); } catch (e) {}
   }
   $('score').textContent = `✅ ${correct}`;
   setTimeout(() => { idx++; idx < TOTAL ? nextQuestion() : endGame(); }, given === right ? 700 : 1500);
